@@ -21,3 +21,5 @@ example/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.j
 .DS_Store
 *.log
 android/.gradle/
+.fvm/
+__pycache__/

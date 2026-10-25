@@ -2,6 +2,8 @@ name: aliyun_fusion_auth
 description: An independent Flutter plugin for Alibaba Cloud Fusion Authentication on Android and iOS, with explicit consent and server-verifiable tokens.
 version: 0.1.7
 homepage: https://pub.dev/publishers/nohup.life
+repository: https://github.com/imp2002/aliyun-fusion-auth
+issue_tracker: https://github.com/imp2002/aliyun-fusion-auth/issues
 environment:
   sdk: '>=3.3.0 <4.0.0'
   flutter: '>=3.19.0'

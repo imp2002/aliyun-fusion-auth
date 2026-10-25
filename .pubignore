@@ -1,4 +1,7 @@
 .git/
+.github/
+.fvm/
+.fvmrc
 !.clang-format
 .dart_tool/
 .flutter-plugins-dependencies
@@ -23,3 +26,4 @@ example/android/.gradle/
 example/android/local.properties
 example/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 *.log
+android/.gradle/

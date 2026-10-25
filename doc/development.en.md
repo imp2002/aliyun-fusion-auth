@@ -41,6 +41,40 @@ Android event classification tests in sequence. On macOS, it also runs iOS
 cleanup adaptation tests that do not require a simulator. It does not publish
 the package.
 
+## GitHub CI and automated releases
+
+`.github/workflows/ci.yml` runs for pushes to `main` and pull requests, and can
+also be started manually from Actions. It uses Flutter 3.47.6 from `.fvmrc`,
+JDK 17, and clang-format 21.1.8 to run the existing checks, release validation
+regression tests, and `flutter pub publish --dry-run`. iOS cleanup tests run
+separately on macOS. CI does not replace device builds and authentication tests.
+
+`.github/workflows/release.yml` runs when a `v<version>` tag is pushed. Its commit
+must already be on `main`, and the tag must match the versions in `pubspec.yaml`,
+`android/build.gradle`, and `ios/aliyun_fusion_auth.podspec`. `CHANGELOG.md` must
+contain a nonempty entry for that version. After all CI checks pass, the workflow
+publishes to pub.dev, then creates a GitHub Release using that changelog entry.
+Versions with suffixes such as `-beta.1` are marked as prereleases on GitHub.
+
+Enable GitHub Actions publishing on the package's
+[Admin page](https://pub.dev/packages/aliyun_fusion_auth/admin), with repository
+`imp2002/aliyun-fusion-auth` and tag pattern `v{{version}}`. The workflow uses
+temporary OIDC credentials through the official `dart-lang/setup-dart` action;
+no pub.dev token or other publishing secret is needed. See the
+[official automated publishing guide](https://dart.dev/tools/pub/automated-publishing).
+
+To release the next version, for example `0.1.8`:
+
+1. Update all three version fields and both changelogs, then commit to `main`.
+2. Wait for CI on `main` to pass.
+3. Run `git tag v0.1.8`, then `git push origin v0.1.8`.
+4. Confirm both publication jobs complete in the Release workflow on Actions.
+
+Published pub.dev versions cannot be overwritten. Version `0.1.7` is already
+published; do not use it to test publication. If pub.dev succeeds but creating
+the GitHub Release fails, select **Re-run failed jobs** to retry only the failed
+jobs without uploading the package again.
+
 ## Platform and publication checks
 
 After starting an iOS simulator, run the tests for the actual SDK runtime and
