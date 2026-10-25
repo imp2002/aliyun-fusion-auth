@@ -1031,8 +1031,8 @@ static AFFusionSession *AFActiveSession;
       (args[@"alternateLoginLabel"] && !alternateLoginLabel.length) ||
       (args[@"phoneInputLabel"] && !phoneInputLabel.length) ||
       (args[@"emailLoginLabel"] && !emailLoginLabel.length) ||
-      ([args[@"appSms"] isEqual:@YES] && ![scene isEqual:AlicomFusionTemplateId_100001]
-       && ![scene isEqual:AlicomFusionTemplateId_100003]) ||
+      ([args[@"appSms"] isEqual:@YES] && ![scene isEqual:AlicomFusionTemplateId_100001] &&
+       ![scene isEqual:AlicomFusionTemplateId_100003]) ||
       ([args[@"startWithSms"] isEqual:@YES] && ![args[@"appSms"] isEqual:@YES]) ||
       (args[@"retainNumberPage"] &&
        (![args[@"retainNumberPage"] isKindOfClass:NSNumber.class] ||
@@ -1074,9 +1074,12 @@ static AFFusionSession *AFActiveSession;
   session.emailLoginLabel = emailLoginLabel;
   session.loginCard = loginCard;
   session.retainNumberPage = [args[@"retainNumberPage"] isEqual:@YES];
-  session.appSms = [args[@"appSms"] isEqual:@YES]
-      && ([scene isEqual:AlicomFusionTemplateId_100001]
-          || [scene isEqual:AlicomFusionTemplateId_100003]);
+  BOOL appSmsRequested = [args[@"appSms"] isEqual:@YES];
+  BOOL appSmsScene = [scene isEqual:AlicomFusionTemplateId_100001];
+  if (!appSmsScene) {
+    appSmsScene = [scene isEqual:AlicomFusionTemplateId_100003];
+  }
+  session.appSms = appSmsRequested && appSmsScene;
   session.startWithSms = session.appSms && [args[@"startWithSms"] isEqual:@YES];
   session.presenter = presenter;
   __weak AliyunFusionAuthPlugin *weakSelf = self;

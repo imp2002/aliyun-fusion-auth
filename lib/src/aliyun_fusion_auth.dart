@@ -299,8 +299,7 @@ class AliyunFusionAuth {
                 config.loginCard != null) &&
             config.scene != FusionAuthScene.login) ||
         (config.startWithSms && !config.appSms) ||
-        (config.appSms && config.scene == FusionAuthScene.resetPassword &&
-            config.phoneNumber == null) ||
+        (config.appSms && config.scene == FusionAuthScene.resetPassword) ||
         (config.retainNumberPage && config.scene != FusionAuthScene.login) ||
         (config.deferConsentToNative &&
             config.scene != FusionAuthScene.login) ||
