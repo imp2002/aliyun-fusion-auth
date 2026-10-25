@@ -39,9 +39,13 @@ CI 使用 `.fvmrc` 固定的 Flutter 3.47.6、JDK 17 和 clang-format 21.1.8，�
 CI 不替代下面的真机构建与认证联调。
 
 `.github/workflows/release.yml` 在推送 `v版本号` 标签时触发。标签必须指向 `main` 已包含的提交，
-且与 `pubspec.yaml`、`android/build.gradle` 和 `ios/aliyun_fusion_auth.podspec` 中的版本一致，
-`CHANGELOG.md` 必须包含该版本的非空更新说明。所有 CI 检查通过后，流水线先发布到 pub.dev，
-再从对应更新日志创建 GitHub Release；带 `-beta.1` 等后缀的版本会标记为预发布。
+且与 `pubspec.yaml` 中的版本一致。版本号只在 `pubspec.yaml` 中维护，Android Gradle 和
+iOS podspec 自动读取它。所有 CI 检查通过后，流水线先发布到 pub.dev，再创建 GitHub Release；
+带 `-beta.1` 等后缀的版本会标记为预发布。
+
+若 `CHANGELOG.md` 已有该版本的非空条目，发布时使用手写说明；否则从上一个版本标签以来的
+Git 提交记录生成说明。CI 将已提交的源码导出到临时目录，并在待发布包中补全更新日志，
+随后校验或发布这个包；仓库文件保持由维护者管理，无需为发版同步修改原生配置或两份更新日志。
 
 pub.dev 需在包的 [Admin 页面](https://pub.dev/packages/aliyun_fusion_auth/admin) 启用 GitHub Actions 自动发布，
 仓库设为 `imp2002/aliyun-fusion-auth`，标签模式设为 `v{{version}}`。流水线通过官方
@@ -50,7 +54,7 @@ pub.dev 需在包的 [Admin 页面](https://pub.dev/packages/aliyun_fusion_auth/
 
 发布下一个版本（例如 `0.1.8`）：
 
-1. 同步修改上述三处版本号，更新中英文更新日志，并提交到 `main`。
+1. 将 `pubspec.yaml` 的 `version` 改为 `0.1.8` 并提交到 `main`。如需自定义说明，可选更新 `CHANGELOG.md`。
 2. 等待 `main` 的 CI 通过。
 3. 执行 `git tag v0.1.8`，再执行 `git push origin v0.1.8`。
 4. 在 Actions 的 Release 流水线中确认 pub.dev 发布和 GitHub Release 均完成。

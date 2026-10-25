@@ -22,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
@@ -41,7 +42,12 @@ jobs:
         run: sh tool/check.sh
       - name: Test release validation
         run: python3 .github/scripts/test_prepare_release.py
+      - name: Prepare package and changelog
+        run: >-
+          python3 .github/scripts/prepare_release.py
+          --package-dir "$RUNNER_TEMP/pub-package"
       - name: Validate pub.dev package
+        working-directory: ${{ runner.temp }}/pub-package
         run: flutter pub publish --dry-run
 
   ios-cleanup:

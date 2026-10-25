@@ -50,11 +50,18 @@ regression tests, and `flutter pub publish --dry-run`. iOS cleanup tests run
 separately on macOS. CI does not replace device builds and authentication tests.
 
 `.github/workflows/release.yml` runs when a `v<version>` tag is pushed. Its commit
-must already be on `main`, and the tag must match the versions in `pubspec.yaml`,
-`android/build.gradle`, and `ios/aliyun_fusion_auth.podspec`. `CHANGELOG.md` must
-contain a nonempty entry for that version. After all CI checks pass, the workflow
-publishes to pub.dev, then creates a GitHub Release using that changelog entry.
+must already be on `main`, and the tag must match the version in `pubspec.yaml`.
+Maintain the version only in `pubspec.yaml`; Android Gradle and the iOS podspec
+read it automatically. After all CI checks pass, the workflow publishes to
+pub.dev, then creates a GitHub Release.
 Versions with suffixes such as `-beta.1` are marked as prereleases on GitHub.
+
+If `CHANGELOG.md` has a nonempty entry for the version, that entry becomes the
+release notes. Otherwise, notes are generated from Git commits since the
+previous version tag. CI exports committed sources to a temporary directory,
+adds the changelog entry to that package, then validates or publishes it. Only
+the package version needs a manual edit; native configurations and translated
+changelogs do not need synchronized edits for each release.
 
 Enable GitHub Actions publishing on the package's
 [Admin page](https://pub.dev/packages/aliyun_fusion_auth/admin), with repository
@@ -65,7 +72,8 @@ no pub.dev token or other publishing secret is needed. See the
 
 To release the next version, for example `0.1.8`:
 
-1. Update all three version fields and both changelogs, then commit to `main`.
+1. Change `version` in `pubspec.yaml` to `0.1.8` and commit to `main`. Optionally
+   update `CHANGELOG.md` with custom notes.
 2. Wait for CI on `main` to pass.
 3. Run `git tag v0.1.8`, then `git push origin v0.1.8`.
 4. Confirm both publication jobs complete in the Release workflow on Actions.

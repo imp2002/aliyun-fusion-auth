@@ -1,6 +1,10 @@
+require 'yaml'
+
+package = YAML.load_file(File.expand_path('../pubspec.yaml', __dir__))
+
 Pod::Spec.new do |s|
   s.name             = 'aliyun_fusion_auth'
-  s.version          = '0.1.7'
+  s.version          = package.fetch('version').split('+').first
   s.summary          = 'Flutter bridge for Aliyun fusion phone authentication.'
   s.homepage         = 'https://pub.dev/packages/aliyun_fusion_auth'
   s.license          = { :type => 'Apache-2.0', :file => '../LICENSE' }

@@ -1,5 +1,10 @@
 group = 'dev.aliyunfusionauth.flutter'
-version = '0.1.7'
+// Keep the package version in pubspec.yaml as the single source of truth.
+def packageVersion = (file('../pubspec.yaml').getText('UTF-8') =~ /(?m)^version:\s*['"]?([^\s'"#]+)/)
+if (!packageVersion.find()) {
+    throw new GradleException('Missing version in pubspec.yaml')
+}
+version = packageVersion.group(1)
 
 apply plugin: 'com.android.library'
 

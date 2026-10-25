@@ -23,7 +23,7 @@ jobs:
           persist-credentials: false
       - name: Require a commit from main
         run: git merge-base --is-ancestor HEAD origin/main
-      - name: Check version and changelog
+      - name: Check version tag
         run: python3 .github/scripts/prepare_release.py "$GITHUB_REF_NAME"
 
   checks:
@@ -41,6 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -63,8 +64,14 @@ jobs:
         uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
         with:
           sdk: ${{ steps.dart.outputs.version }}
+      - name: Prepare package and changelog
+        run: >-
+          python3 .github/scripts/prepare_release.py "$GITHUB_REF_NAME"
+          --package-dir "$RUNNER_TEMP/pub-package"
       - run: flutter pub get
+        working-directory: ${{ runner.temp }}/pub-package
       - name: Publish package
+        working-directory: ${{ runner.temp }}/pub-package
         run: flutter pub publish --force
 
   github-release:
@@ -77,6 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Prepare release notes
         id: release
