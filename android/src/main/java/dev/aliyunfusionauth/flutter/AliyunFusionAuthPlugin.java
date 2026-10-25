@@ -166,7 +166,8 @@ public final class AliyunFusionAuthPlugin
                 || (alternateLoginValue != null
                         && (!(alternateLoginValue instanceof String)
                                 || alternateLoginLabel.isEmpty()))
-                || (Boolean.TRUE.equals(call.argument("appSms")) && !"100001".equals(sceneId))
+                || (Boolean.TRUE.equals(call.argument("appSms"))
+                        && !("100001".equals(sceneId) || "100003".equals(sceneId)))
                 || (Boolean.TRUE.equals(call.argument("startWithSms"))
                         && !Boolean.TRUE.equals(call.argument("appSms")))
                 || !("100001".equals(sceneId) || "100003".equals(sceneId))
@@ -182,7 +183,8 @@ public final class AliyunFusionAuthPlugin
         }
         Session current = new Session(result, sceneId, phoneNumber, appName, termsTitle, termsUrl,
                 privacyTitle, privacyUrl, alternateLoginLabel, phoneInputLabel, emailLoginLabel);
-        current.appSms = Boolean.TRUE.equals(call.argument("appSms")) && "100001".equals(sceneId);
+        current.appSms = Boolean.TRUE.equals(call.argument("appSms"))
+                && ("100001".equals(sceneId) || "100003".equals(sceneId));
         current.startWithSms = current.appSms && Boolean.TRUE.equals(call.argument("startWithSms"));
         current.stageRequestId = argument(call, "stageRequestId");
         session = current;
@@ -414,16 +416,46 @@ public final class AliyunFusionAuthPlugin
                         .setNavText(current.alternateLoginLabel.isEmpty()
                                         ? current.appName + " · 手机号认证"
                                         : current.appName)
+                        .setNavTextSizeDp(17)
+                        .setNavTextColor(0xFF17191D)
+                        .setNavColor(0xFFFFFFFF)
+                        .setStatusBarColor(0xFFFFFFFF)
                         .setLogBtnText("100001".equals(current.sceneId) ? "本机号码一键登录"
                                                                           : "本机号码一键认证")
+                        .setLogBtnTextSizeDp(16)
+                        .setLogBtnTextColor(0xFFFFFFFF)
+                        .setLogBtnHeight(50)
+                        .setLogBtnMarginLeftAndRight(30)
                         .setSloganHidden(true)
+                        .setLogoHidden(true)
                         .setNumberLayoutGravity(Gravity.CENTER_HORIZONTAL)
                         .setNumberFieldOffsetX(0)
+                        .setNumberSizeDp(20)
+                        .setNumberColor(0xFF17191D)
+                        // iOS renders "+86 156****9798" as one centered
+                        // label; Android draws the country prefix and the
+                        // masked number as sibling views in one row. A 20dp
+                        // number keeps both on one line without overlap.
+                        // Vertical rhythm mirrors the iOS login card:
+                        // number at 18, button at 80, entries at 142,
+                        // agreement pinned to the bottom. Offsets are dp and
+                        // measured below the nav bar, so the extra top margin
+                        // keeps the number clear of the title.
+                        .setNumFieldOffsetY(64)
+                        .setLogBtnOffsetY(126)
+                        .setSwitchOffsetY(190)
+                        .setSwitchAccTextSizeDp(13)
+                        .setSwitchAccHidden("100003".equals(current.sceneId))
+                        // Reset scene renders the SDK's default "更多登录方式"
+                        // as the switch entry; it duplicates the custom
+                        // title-bar entries and is hidden there. Login keeps
+                        // "使用其他手机号认证" for the SMS fallback.
+                        // Agreement checkbox right under the button, mirroring
+                        // the app's own form order.
+                        .setPrivacyOffsetY("100003".equals(current.sceneId) ? 150 : 240)
                         .setSwitchAccText(current.phoneInputLabel.isEmpty()
                                         ? "使用其他手机号认证"
                                         : current.phoneInputLabel)
-                        .setLogoImgDrawable(
-                                context.getApplicationInfo().loadIcon(context.getPackageManager()))
                         .setAppPrivacyOne(protocolTitle(current.termsTitle), current.termsUrl)
                         .setAppPrivacyTwo(protocolTitle(current.privacyTitle), current.privacyUrl)
                         .setVendorPrivacyPrefix("《")
@@ -435,6 +467,18 @@ public final class AliyunFusionAuthPlugin
                         .setPrivacyAlertIsNeedShow(true)
                         .setPrivacyAlertTitleContent("请先阅读并勾选同意下方协议")
                         .setPrivacyAlertTitleTextSize(15)
+                        .setPrivacyAlertCornerRadiusArray(new int[] {16, 16, 16, 16})
+                        .setPrivacyAlertTitleBackgroundColor(0xFFFFFFFF)
+                        .setPrivacyAlertContentBackgroundColor(0xFFFFFFFF)
+                        .setPrivacyAlertMaskAlpha(0.4f)
+                        .setPrivacyAlertContentAlignment(Gravity.CENTER)
+                        .setPrivacyAlertCloseBtnShow(false)
+                        .setPrivacyAlertBtnTextSize(15)
+                        .setPrivacyAlertBtnTextColor(0xFFFFFFFF)
+                        .setPrivacyAlertBtnWidth(120)
+                        .setPrivacyAlertBtnHeigth(44)
+                        .setPrivacyAlertBtnHorizontalMargin(24)
+                        .setPrivacyAlertBtnVerticalMargin(24)
                         .setPrivacyAlertWidth(Math.min(420,
                                 Math.max(0,
                                         (int) (context.getResources()
@@ -675,6 +719,7 @@ public final class AliyunFusionAuthPlugin
         button.setTextColor(FusionNumberAuthModel.DEFAULT_NAV_TEXT_COLOR);
         button.setClickable(true);
         button.setFocusable(true);
+        button.setTextColor(0xFF0092FF); // App theme blue (os_color).
         TypedValue background = new TypedValue();
         if (viewContext.getTheme().resolveAttribute(
                     android.R.attr.selectableItemBackgroundBorderless, background, true)
