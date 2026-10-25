@@ -1,0 +1,20 @@
+BasedOnStyle: LLVM
+ColumnLimit: 100
+IndentWidth: 2
+ContinuationIndentWidth: 4
+ObjCBlockIndentWidth: 2
+ObjCSpaceAfterProperty: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+SortIncludes: Never
+---
+Language: Java
+BasedOnStyle: Google
+ColumnLimit: 100
+IndentWidth: 4
+ContinuationIndentWidth: 8
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+SortIncludes: Never

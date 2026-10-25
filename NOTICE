@@ -1,0 +1,9 @@
+aliyun_fusion_auth
+
+简体中文：NOTICE | English: NOTICE.en
+
+阿里云融合认证的独立 Flutter 集成项目，非阿里云官方软件包。
+
+Flutter 桥接源代码采用 Apache License 2.0，完整许可文本见 LICENSE。
+随包分发的阿里云 SDK 二进制、运营商组件和资源遵循各自供应商条款，
+不会被重新授权为 Apache 2.0。

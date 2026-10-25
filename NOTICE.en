@@ -1,0 +1,11 @@
+aliyun_fusion_auth
+
+简体中文：NOTICE | English: NOTICE.en
+
+An independent Flutter integration for Alibaba Cloud Fusion Authentication.
+Not an official Alibaba Cloud package.
+
+The Flutter bridge source is licensed under the Apache License, Version 2.0
+(included as LICENSE). Bundled Alibaba Cloud SDK binaries, carrier components,
+and resources remain subject to their respective vendor terms; they are not
+relicensed under Apache 2.0.

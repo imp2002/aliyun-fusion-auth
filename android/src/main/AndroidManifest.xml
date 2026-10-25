@@ -1,0 +1,24 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- The SDK supplies the other activity declarations and permissions. -->
+        <activity
+            android:name="com.alicom.fusion.auth.smsauth.FusionSmsActivity"
+            android:theme="@style/AliyunFusionAuthTheme" />
+        <activity
+            android:name="com.alicom.fusion.auth.upsms.AlicomFusionUpSmsActivity"
+            android:theme="@style/AliyunFusionAuthTheme" />
+        <activity
+            android:name="com.alicom.fusion.auth.graphauth.FusionGraphAuthActivity"
+            android:theme="@style/AliyunFusionAuthTheme" />
+        <activity
+            android:name="dev.aliyunfusionauth.flutter.FusionAuthProtocolActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize|uiMode|fontScale"
+            android:exported="false"
+            android:theme="@style/AliyunFusionAuthTheme">
+            <intent-filter>
+                <action android:name="com.fusion.auth" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

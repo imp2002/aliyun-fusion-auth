@@ -1,0 +1,36 @@
+group = 'dev.aliyunfusionauth.flutter'
+version = '0.1.7'
+
+apply plugin: 'com.android.library'
+
+// Resolve the supplied SDK from a local Maven repository during app builds.
+// It remains a transitive dependency for standalone AAR distribution; see SDK.md.
+def bundledSdkRepository = file('vendor')
+rootProject.allprojects {
+    repositories {
+        maven {
+            url = bundledSdkRepository.toURI()
+            content { includeGroup 'dev.aliyunfusionauth.vendor' }
+        }
+    }
+}
+
+android {
+    namespace 'dev.aliyunfusionauth.flutter'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 21
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'dev.aliyunfusionauth.vendor:fusionauth:1.2.16'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+}

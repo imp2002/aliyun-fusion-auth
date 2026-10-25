@@ -1,0 +1,22 @@
+PODS:
+  - aliyun_fusion_auth (0.1.1):
+    - Flutter
+  - Flutter (1.0.0)
+
+DEPENDENCIES:
+  - aliyun_fusion_auth (from `.symlinks/plugins/aliyun_fusion_auth/ios`)
+  - Flutter (from `Flutter`)
+
+EXTERNAL SOURCES:
+  aliyun_fusion_auth:
+    :path: ".symlinks/plugins/aliyun_fusion_auth/ios"
+  Flutter:
+    :path: Flutter
+
+SPEC CHECKSUMS:
+  aliyun_fusion_auth: 4d300a7816dacb4e4c16b6a21c0c977262052590
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
+
+PODFILE CHECKSUM: ce2a4dd764e1c7aeed6a7cdc5e61d092b6dc6d32
+
+COCOAPODS: 1.16.2
