@@ -8,7 +8,7 @@
 
 ## 当前范围
 
-| 项目 | 0.1.7 |
+| 项目 | 0.1.8 |
 | --- | --- |
 | Android 原生 SDK | 1.2.16；Android API 21+，compileSdk 36 |
 | iOS 原生 SDK | 1.2.15 发行包，内含 Framework 标识为 1.2.14；iOS 15.0+；CocoaPods |
@@ -27,7 +27,7 @@
 
 ```yaml
 dependencies:
-  aliyun_fusion_auth: ^0.1.7
+  aliyun_fusion_auth: ^0.1.8
 ```
 
 需要调试插件源码时，可临时将依赖改为指向本地包目录：
