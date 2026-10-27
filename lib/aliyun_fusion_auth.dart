@@ -11,3 +11,5 @@ export 'src/fusion_auth_page_snapshot.dart';
 export 'src/fusion_auth_result.dart';
 export 'src/fusion_auth_scene.dart';
 export 'src/fusion_auth_stage.dart';
+export 'src/fusion_auth_presentation.dart';
+export 'src/fusion_auth_event.dart';

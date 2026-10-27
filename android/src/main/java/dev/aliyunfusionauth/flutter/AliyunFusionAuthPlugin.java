@@ -1,21 +1,39 @@
 package dev.aliyunfusionauth.flutter;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.RelativeLayout;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.CompoundButton;
+import android.widget.Toast;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import androidx.appcompat.content.res.AppCompatResources;
 
 import com.alicom.fusion.auth.AlicomFusionAuthCallBack;
 import com.alicom.fusion.auth.AlicomFusionAuthUICallBack;
@@ -29,8 +47,13 @@ import com.alicom.fusion.auth.smsauth.AlicomFusionInputView;
 import com.alicom.fusion.auth.smsauth.AlicomFusionVerifyCodeView;
 import com.alicom.fusion.auth.token.AlicomFusionAuthToken;
 import com.alicom.fusion.auth.upsms.AlicomFusionUpSMSView;
-import com.mobile.auth.gatewayauth.AuthRegisterViewConfig;
+import com.mobile.auth.gatewayauth.AuthRegisterXmlConfig;
+import com.mobile.auth.gatewayauth.AuthUIControlClickListener;
 import com.mobile.auth.gatewayauth.Constant;
+import com.mobile.auth.gatewayauth.PhoneNumberAuthHelper;
+import com.mobile.auth.gatewayauth.PreLoginResultListener;
+import com.mobile.auth.gatewayauth.TokenResultListener;
+import com.mobile.auth.gatewayauth.ui.AbstractPnsViewDelegate;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,6 +87,7 @@ public final class AliyunFusionAuthPlugin
         final String sceneId;
         String phoneNumber;
         final String appName;
+        final String greeting;
         final String termsTitle;
         final String termsUrl;
         final String privacyTitle;
@@ -94,7 +118,8 @@ public final class AliyunFusionAuthPlugin
 
         Session(MethodChannel.Result result, String sceneId, String phoneNumber, String appName,
                 String termsTitle, String termsUrl, String privacyTitle, String privacyUrl,
-                String alternateLoginLabel, String phoneInputLabel, String emailLoginLabel) {
+                String alternateLoginLabel, String phoneInputLabel, String emailLoginLabel,
+                String greeting) {
             this.result = result;
             this.sceneId = sceneId;
             this.phoneNumber = phoneNumber;
@@ -106,6 +131,7 @@ public final class AliyunFusionAuthPlugin
             this.alternateLoginLabel = alternateLoginLabel;
             this.phoneInputLabel = phoneInputLabel;
             this.emailLoginLabel = emailLoginLabel;
+            this.greeting = greeting;
         }
     }
 
@@ -121,6 +147,14 @@ public final class AliyunFusionAuthPlugin
     public void onMethodCall(MethodCall call, MethodChannel.Result result) {
         if ("authenticate".equals(call.method)) {
             authenticate(call, result);
+        } else if ("probeHeadless".equals(call.method)) {
+            probeHeadless(call, result);
+        } else if ("capabilities".equals(call.method)) {
+            Map<String, Object> capabilities = new HashMap<>();
+            // The bundled AAR currently exposes Activity presentation only.
+            capabilities.put("flutterHosted", false);
+            capabilities.put("reason", "vendor_view_api_unavailable");
+            result.success(capabilities);
         } else if ("cancel".equals(call.method)) {
             fail(session, "cancelled", "已取消手机号认证", null);
             result.success(null);
@@ -131,9 +165,107 @@ public final class AliyunFusionAuthPlugin
         }
     }
 
+    /**
+     * Probes the vendor pre-login API without starting the fusion scene. This
+     * is intentionally diagnostic: it never returns a carrier token or proof
+     * and never changes the production authenticate path.
+     */
+    private void probeHeadless(MethodCall call, MethodChannel.Result result) {
+        if (activity == null || activity.isFinishing()) {
+            result.error("no_activity", "Android Activity is unavailable", null);
+            return;
+        }
+        final long timeoutMs =
+                Math.max(5_000L, Math.min(60_000L, number(call.argument("timeoutMs"), 15_000L)));
+        final Map<String, Object> response = new HashMap<>();
+        response.put("startedActivity", false);
+        response.put("returnedCarrierToken", false);
+        response.put("returnedFusionProof", false);
+        response.put("method", "accelerateLoginPage");
+        final boolean[] replied = {false};
+        Runnable timeout = () -> {
+            if (replied[0])
+                return;
+            replied[0] = true;
+            response.put("supported", false);
+            response.put("reason", "prelogin_timeout");
+            result.success(response);
+        };
+        main.postDelayed(timeout, timeoutMs);
+        try {
+            final PhoneNumberAuthHelper helper =
+                    PhoneNumberAuthHelper.getInstance(activity.getApplicationContext(),
+                            new TokenResultListener() {
+                                @Override
+                                public void onTokenSuccess(String token) {
+                                    if (replied[0])
+                                        return;
+                                    replied[0] = true;
+                                    main.removeCallbacks(timeout);
+                                    response.put("returnedCarrierToken",
+                                            token != null && !token.isEmpty());
+                                    response.put("supported", false);
+                                    response.put("reason", "unexpected_auth_callback");
+                                    result.success(response);
+                                }
+
+                                @Override
+                                public void onTokenFailed(String code) {
+                                    if (replied[0])
+                                        return;
+                                    replied[0] = true;
+                                    main.removeCallbacks(timeout);
+                                    response.put("supported", false);
+                                    response.put("reason", "auth_callback_failed");
+                                    result.success(response);
+                                }
+                            });
+            helper.accelerateLoginPage(
+                    PhoneNumberAuthHelper.SERVICE_TYPE_LOGIN,
+                    new PreLoginResultListener() {
+                        @Override
+                        public void onTokenSuccess(String token) {
+                            if (replied[0])
+                                return;
+                            replied[0] = true;
+                            main.removeCallbacks(timeout);
+                            response.put("returnedCarrierToken", token != null && !token.isEmpty());
+                            response.put("supported", false);
+                            response.put("reason", "prelogin_only");
+                            result.success(response);
+                        }
+
+                        @Override
+                        public void onTokenFailed(String code, String message) {
+                            if (replied[0])
+                                return;
+                            replied[0] = true;
+                            main.removeCallbacks(timeout);
+                            response.put("supported", false);
+                            response.put("reason", "prelogin_failed");
+                            result.success(response);
+                        }
+                    });
+        } catch (Throwable error) {
+            if (replied[0])
+                return;
+            replied[0] = true;
+            main.removeCallbacks(timeout);
+            response.put("supported", false);
+            response.put("reason", "prelogin_exception");
+            result.success(response);
+        }
+    }
+
     private void authenticate(MethodCall call, MethodChannel.Result result) {
         if (session != null || activeSession != null) {
             result.error("busy", "手机号认证正在进行中", null);
+            return;
+        }
+        String presentation = argument(call, "presentation");
+        if ("flutterHosted".equals(presentation)) {
+            result.error("unsupported_hosted_mode",
+                    "当前 Android 融合认证 SDK 未提供可嵌入 Flutter 的授权视图", null);
             return;
         }
         boolean nativeConsent = Boolean.TRUE.equals(call.argument("deferConsentToNative"))
@@ -151,6 +283,7 @@ public final class AliyunFusionAuthPlugin
         String sceneId = argument(call, "sceneId");
         String phoneNumber = argument(call, "phoneNumber");
         String appName = argument(call, "appName");
+        String greeting = argument(call, "greeting");
         String termsTitle = argument(call, "termsTitle");
         String termsUrl = argument(call, "termsUrl");
         String privacyTitle = argument(call, "privacyTitle");
@@ -182,7 +315,8 @@ public final class AliyunFusionAuthPlugin
             return;
         }
         Session current = new Session(result, sceneId, phoneNumber, appName, termsTitle, termsUrl,
-                privacyTitle, privacyUrl, alternateLoginLabel, phoneInputLabel, emailLoginLabel);
+                privacyTitle, privacyUrl, alternateLoginLabel, phoneInputLabel, emailLoginLabel,
+                greeting);
         current.appSms = Boolean.TRUE.equals(call.argument("appSms"))
                 && ("100001".equals(sceneId) || "100003".equals(sceneId));
         current.startWithSms = current.appSms && Boolean.TRUE.equals(call.argument("startWithSms"));
@@ -412,87 +546,7 @@ public final class AliyunFusionAuthPlugin
                     });
                     return;
                 }
-                model.getBuilder()
-                        .setNavText(current.alternateLoginLabel.isEmpty()
-                                        ? current.appName + " · 手机号认证"
-                                        : current.appName)
-                        .setNavTextSizeDp(17)
-                        .setNavTextColor(0xFF17191D)
-                        .setNavColor(0xFFFFFFFF)
-                        .setStatusBarColor(0xFFFFFFFF)
-                        .setLogBtnText("100001".equals(current.sceneId) ? "本机号码一键登录"
-                                                                          : "本机号码一键认证")
-                        .setLogBtnTextSizeDp(16)
-                        .setLogBtnTextColor(0xFFFFFFFF)
-                        .setLogBtnHeight(50)
-                        .setLogBtnMarginLeftAndRight(30)
-                        .setSloganHidden(true)
-                        .setLogoHidden(true)
-                        .setNumberLayoutGravity(Gravity.CENTER_HORIZONTAL)
-                        .setNumberFieldOffsetX(0)
-                        .setNumberSizeDp(20)
-                        .setNumberColor(0xFF17191D)
-                        // iOS renders "+86 156****9798" as one centered
-                        // label; Android draws the country prefix and the
-                        // masked number as sibling views in one row. A 20dp
-                        // number keeps both on one line without overlap.
-                        // Vertical rhythm mirrors the iOS login card:
-                        // number at 18, button at 80, entries at 142,
-                        // agreement pinned to the bottom. Offsets are dp and
-                        // measured below the nav bar, so the extra top margin
-                        // keeps the number clear of the title.
-                        .setNumFieldOffsetY(64)
-                        .setLogBtnOffsetY(126)
-                        .setSwitchOffsetY(190)
-                        .setSwitchAccTextSizeDp(13)
-                        .setSwitchAccHidden("100003".equals(current.sceneId))
-                        // Reset scene renders the SDK's default "更多登录方式"
-                        // as the switch entry; it duplicates the custom
-                        // title-bar entries and is hidden there. Login keeps
-                        // "使用其他手机号认证" for the SMS fallback.
-                        // Agreement checkbox right under the button, mirroring
-                        // the app's own form order.
-                        .setPrivacyOffsetY("100003".equals(current.sceneId) ? 150 : 240)
-                        .setSwitchAccText(current.phoneInputLabel.isEmpty()
-                                        ? "使用其他手机号认证"
-                                        : current.phoneInputLabel)
-                        .setAppPrivacyOne(protocolTitle(current.termsTitle), current.termsUrl)
-                        .setAppPrivacyTwo(protocolTitle(current.privacyTitle), current.privacyUrl)
-                        .setVendorPrivacyPrefix("《")
-                        .setVendorPrivacySuffix("》")
-                        .setPrivacyTextSizeDp(13)
-                        .setPrivacyBefore("我已阅读并同意")
-                        .setPrivacyState(false)
-                        .setCheckboxHidden(false)
-                        .setPrivacyAlertIsNeedShow(true)
-                        .setPrivacyAlertTitleContent("请先阅读并勾选同意下方协议")
-                        .setPrivacyAlertTitleTextSize(15)
-                        .setPrivacyAlertCornerRadiusArray(new int[] {16, 16, 16, 16})
-                        .setPrivacyAlertTitleBackgroundColor(0xFFFFFFFF)
-                        .setPrivacyAlertContentBackgroundColor(0xFFFFFFFF)
-                        .setPrivacyAlertMaskAlpha(0.4f)
-                        .setPrivacyAlertContentAlignment(Gravity.CENTER)
-                        .setPrivacyAlertCloseBtnShow(false)
-                        .setPrivacyAlertBtnTextSize(15)
-                        .setPrivacyAlertBtnTextColor(0xFFFFFFFF)
-                        .setPrivacyAlertBtnWidth(120)
-                        .setPrivacyAlertBtnHeigth(44)
-                        .setPrivacyAlertBtnHorizontalMargin(24)
-                        .setPrivacyAlertBtnVerticalMargin(24)
-                        .setPrivacyAlertWidth(Math.min(420,
-                                Math.max(0,
-                                        (int) (context.getResources()
-                                                        .getDisplayMetrics()
-                                                        .widthPixels
-                                                / context.getResources()
-                                                        .getDisplayMetrics()
-                                                        .density)
-                                                - 48)))
-                        .setProtocolAction("com.fusion.auth")
-                        .setPackageName(context.getPackageName());
-                if (!current.alternateLoginLabel.isEmpty() || !current.emailLoginLabel.isEmpty()) {
-                    configureAlternateLogin(model, current);
-                }
+                configureNumberPage(model, current);
             }
 
             @Override
@@ -538,6 +592,348 @@ public final class AliyunFusionAuthPlugin
             }
         };
     }
+
+    private GradientDrawable loginButtonBackground() {
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(Color.rgb(0, 146, 255));
+        background.setCornerRadius(
+                14 * (context == null
+                        ? 1f
+                        : context.getResources().getDisplayMetrics().density));
+        return background;
+    }
+
+
+    // Vertical rhythm of the content block, in dp relative to the top of the
+    // masked number. The SDK only accepts fixed offsets, so the block's screen
+    // position is computed from the screen height before the page is created
+    // (see numberPageLayout); the overlay then follows the vendor views'
+    // measured bounds (see alignOverlay).
+    // Space the removed greeting used; kept so the other views stay put.
+    private static final int BLOCK_TOP_ABOVE_NUMBER_DP = 64;
+    private static final int LOGIN_BELOW_NUMBER_DP = 56;
+    private static final int LOGIN_HEIGHT_DP = 50;
+    private static final int OTHER_BELOW_LOGIN_DP = 16;
+    private static final int PRIVACY_BELOW_NUMBER_DP = 190;
+    // Block top to the bottom of a two-line agreement.
+    private static final int BLOCK_HEIGHT_DP = BLOCK_TOP_ABOVE_NUMBER_DP + 230;
+    // Block centre as a fraction of the screen height; slightly above the
+    // middle reads as centred and leaves room for the keyboard-free bottom.
+    private static final float BLOCK_CENTER_RATIO = 0.45f;
+    private static final int CLOSE_ROW_DP = 60;
+    private static final int BOTTOM_RESERVE_DP = 64;
+    // The SDK body starts below the status bar plus a reserved title area,
+    // even with the nav bar hidden (about 100dp in total on a measured
+    // device). An error here shifts the vendor views uniformly; the overlay
+    // still follows them because it reads their real bounds.
+    private static final int RESERVED_TITLE_DP = 56;
+
+    /** SDK offsets for one page, computed before the vendor page is created. */
+    private static final class NumberPageLayout {
+        final int bodyTopDp;
+        final int numberOffsetDp;
+        final int loginOffsetDp;
+        final int privacyOffsetDp;
+
+        NumberPageLayout(int bodyTopDp, int numberOffsetDp) {
+            this.bodyTopDp = bodyTopDp;
+            this.numberOffsetDp = numberOffsetDp;
+            this.loginOffsetDp = numberOffsetDp + LOGIN_BELOW_NUMBER_DP;
+            this.privacyOffsetDp = numberOffsetDp + PRIVACY_BELOW_NUMBER_DP;
+        }
+    }
+
+    private static NumberPageLayout numberPageLayout(Context context) {
+        android.util.DisplayMetrics metrics = context.getResources().getDisplayMetrics();
+        float density = metrics.density;
+        int screenDp = Math.round(metrics.heightPixels / density);
+        int statusDp = 24;
+        int statusId = context.getResources()
+                .getIdentifier("status_bar_height", "dimen", "android");
+        if (statusId != 0)
+            statusDp = Math.round(context.getResources().getDimensionPixelSize(statusId) / density);
+        int bodyTopDp = statusDp + RESERVED_TITLE_DP;
+        // Number top on screen that puts the block centre at the target ratio,
+        // kept below the close button row and above the bottom reserve.
+        int numberTop = Math.round(
+                screenDp * BLOCK_CENTER_RATIO - BLOCK_HEIGHT_DP / 2f + BLOCK_TOP_ABOVE_NUMBER_DP);
+        int minNumberTop = statusDp + CLOSE_ROW_DP + BLOCK_TOP_ABOVE_NUMBER_DP;
+        int maxNumberTop =
+                screenDp - BOTTOM_RESERVE_DP - BLOCK_HEIGHT_DP + BLOCK_TOP_ABOVE_NUMBER_DP;
+        numberTop = Math.max(minNumberTop, Math.min(numberTop, maxNumberTop));
+        return new NumberPageLayout(bodyTopDp, Math.max(0, numberTop - bodyTopDp));
+    }
+
+    /**
+     * The SDK must keep drawing the masked number, login button and carrier
+     * agreement. Everything else is hidden and replaced by an app-owned XML
+     * overlay registered through the vendor's public addAuthRegisterXmlConfig.
+     */
+    private void configureNumberPage(FusionNumberAuthModel model, Session current) {
+        Context viewContext = activity != null ? activity : context;
+        NumberPageLayout layout = numberPageLayout(viewContext);
+        boolean isDark = isDarkMode(viewContext);
+        // Light mode: dark text on white background
+        // Dark mode: light text on dark background
+        int backgroundColor = isDark ? 0xFF111214 : 0xFFFFFFFF;
+        int numberColor = isDark ? 0xFFF6F6F6 : 0xFF17191D;
+        int privacyTextColor = isDark ? 0xFFCCCCCC : 0xFF68707D;
+        model.getBuilder()
+                .setNavHidden(true)
+                .setStatusBarColor(backgroundColor)
+                .setLightColor(isDark)
+                .setBottomNavColor(backgroundColor)
+                .setLogoHidden(true)
+                .setSloganHidden(true)
+                // The overlay draws "其他手机号登录"; hide the
+                // vendor "登录" title, switch footer and account switch so
+                // nothing is duplicated or overlaps.
+                .hiddenLoginText(true)
+                .hiddenSwtichLogin(true)
+                .setSwitchAccHidden(true)
+                .hiddenNumberCountry(false)
+                .setNumberLayoutGravity(Gravity.CENTER_HORIZONTAL)
+                .setNumberFieldOffsetX(0)
+                .setNumFieldOffsetY(layout.numberOffsetDp)
+                // "+86" is resized to match at runtime (matchCountryCodeSize).
+                .setNumberSizeDp(20)
+                .setNumberColor(numberColor)
+                .setLogBtnText("100001".equals(current.sceneId) ? "本机号码一键登录"
+                                                                  : "本机号码一键认证")
+                .setLogBtnTextSizeDp(16)
+                .setLogBtnTextColor(0xFFFFFFFF)
+                .setLogBtnBackgroundDrawable(loginButtonBackground())
+                .setLogBtnHeight(50)
+                .setLogBtnMarginLeftAndRight(30)
+                .setLogBtnLayoutGravity(Gravity.CENTER_HORIZONTAL)
+                .setLogBtnOffsetY(layout.loginOffsetDp)
+                // The app shows its own themed consent dialog instead.
+                .setLogBtnToastHidden(true)
+                .setPrivacyAlertIsNeedShow(false)
+                .setAppPrivacyOne(protocolTitle(current.termsTitle), current.termsUrl)
+                .setAppPrivacyTwo(protocolTitle(current.privacyTitle), current.privacyUrl)
+                .setVendorPrivacyPrefix("《")
+                .setVendorPrivacySuffix("》")
+                .setAppPrivacyColor(privacyTextColor, 0xFF0092FF)
+                .setPrivacyOneColor(0xFF0092FF)
+                .setPrivacyTwoColor(0xFF0092FF)
+                .setPrivacyOperatorColor(0xFF0092FF)
+                .setPrivacyTextSizeDp(13)
+                .setPrivacyBefore("我已阅读并同意")
+                .setPrivacyState(false)
+                .setCheckboxHidden(false)
+                .setCheckBoxWidth(18)
+                .setCheckBoxHeight(18)
+                .setCheckedImgDrawable(AppCompatResources.getDrawable(
+                        viewContext, R.drawable.aliyun_fusion_auth_checkbox_checked))
+                .setUncheckedImgDrawable(AppCompatResources.getDrawable(
+                        viewContext, R.drawable.aliyun_fusion_auth_checkbox_unchecked))
+                .setProtocolLayoutGravity(Gravity.CENTER_HORIZONTAL)
+                .setPrivacyMargin(30)
+                .setPrivacyOffsetY(layout.privacyOffsetDp)
+                .setProtocolAction("com.fusion.auth")
+                .setPackageName(context.getPackageName());
+
+        model.addAuthRegisterXmlConfig(
+                new AuthRegisterXmlConfig.Builder()
+                        .setLayout(
+                                R.layout.aliyun_fusion_auth_number_page,
+                                new AbstractPnsViewDelegate() {
+                                    @Override
+                                    public void onViewCreated(View view) {
+                                        bindNumberPage(view, model, current, layout);
+                                    }
+                                })
+                        .build());
+
+        // Show toast when user tries to login without checking the consent checkbox
+        model.setUiClickListener(new AuthUIControlClickListener() {
+            @Override
+            public void onClick(String code, Context ctx, String jsonStr) {
+                android.util.Log.d(
+                        "AliyunFusionAuth", "UI click: code=" + code + ", json=" + jsonStr);
+                // code 700002 = login button clicked without consent
+                if ("700002".equals(code)) {
+                    Toast.makeText(ctx, "请先阅读并勾选协议", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+
+    private void bindNumberPage(
+            View root, FusionNumberAuthModel model, Session current, NumberPageLayout layout) {
+        // Update theme-dependent colors initially
+        updateThemeColors(root);
+
+        TextView otherNumber = root.findViewById(R.id.aliyun_fusion_auth_other_number);
+        if (otherNumber != null) {
+            otherNumber.setTextColor(0xFF0092FF);
+            otherNumber.setOnClickListener(ignored -> {
+                if (session != current)
+                    return;
+                if (!current.alternateLoginLabel.isEmpty()) {
+                    // Close the vendor page and let Flutter open the app's own
+                    // password/email login page.
+                    fail(current, "alternative_login", "已选择其他登录方式", null);
+                } else {
+                    // Without an app login page, keep the SDK's SMS fallback.
+                    current.switchingNumber = true;
+                    model.otherPhoneLogin();
+                }
+            });
+        }
+        root.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            alignOverlay(root, layout);
+            // Update background color on every layout (responds to theme changes)
+            boolean isDark = isDarkMode(root.getContext());
+            int backgroundColor = isDark ? 0xFF111214 : 0xFFFFFFFF;
+            root.setBackgroundColor(backgroundColor);
+        });
+        View closeButton = root.findViewById(R.id.aliyun_fusion_auth_close);
+        if (closeButton != null) {
+            closeButton.setOnClickListener(
+                    ignored -> fail(current, "cancelled", "已取消手机号认证", null));
+        }
+    }
+
+    /**
+     * Updates background and phone number colors based on current theme.
+     */
+    private void updateThemeColors(View root) {
+        boolean isDark = isDarkMode(root.getContext());
+
+        // Set page background color
+        int backgroundColor = isDark ? 0xFF111214 : 0xFFFFFFFF;
+        root.setBackgroundColor(backgroundColor);
+
+        // Phone number color is updated in alignOverlay (runs on every layout)
+    }
+
+    /**
+     * Places the overlay from the vendor views' real bounds, because the SDK
+     * body starts below a reserved title area whose height depends on the
+     * device. Runs on every layout pass; translation and alpha do not
+     * request another layout.
+     */
+    private static void alignOverlay(View root, NumberPageLayout layout) {
+        View page = root.getRootView();
+        float density = root.getResources().getDisplayMetrics().density;
+        // hiddenSwtichLogin/hiddenLoginText do not remove these vendor views
+        // from fusion_custom_body; the overlay replaces both.
+        hideVendorView(page, com.alicom.fusion.auth.R.id.tv_otherNumber);
+        hideVendorView(page, com.alicom.fusion.auth.R.id.tv_logintext);
+
+        int[] rootLocation = new int[2];
+        root.getLocationOnScreen(rootLocation);
+        Rect visible = new Rect();
+        root.getWindowVisibleDisplayFrame(visible);
+        int statusInset = Math.max(0, visible.top - rootLocation[1]);
+        root.findViewById(R.id.aliyun_fusion_auth_close).setTranslationY(statusInset);
+
+        matchCountryCodeSize(page);
+
+        // Update phone number color based on current theme (runs on every layout)
+        View numberContainer = page.findViewById(com.alicom.fusion.auth.R.id.authsdk_number_view);
+        if (numberContainer != null) {
+            boolean isDark = isDarkMode(page.getContext());
+            int numberColor = isDark ? 0xFFF6F6F6 : 0xFF17191D;
+            // The container is a RelativeLayout, find TextView children
+            if (numberContainer instanceof android.view.ViewGroup) {
+                android.view.ViewGroup group = (android.view.ViewGroup) numberContainer;
+                for (int i = 0; i < group.getChildCount(); i++) {
+                    View child = group.getChildAt(i);
+                    if (child instanceof TextView) {
+                        ((TextView) child).setTextColor(numberColor);
+                    }
+                }
+            }
+        }
+
+        // Fallback uses the same estimate that produced the SDK offsets.
+        int bodyTop = Math.round(layout.bodyTopDp * density);
+        int numberTop = numberContainer != null && numberContainer.getHeight() > 0
+                ? vendorTop(
+                          page,
+                          com.alicom.fusion.auth.R.id.authsdk_number_view,
+                          rootLocation[1],
+                          0)
+                : bodyTop + Math.round(layout.numberOffsetDp * density);
+
+        // Place phone icon above the masked number
+        View phoneIcon = root.findViewById(R.id.aliyun_fusion_auth_phone_icon);
+        if (phoneIcon != null) {
+            int iconAboveNumber = numberTop - Math.round(80 * density);
+            placeOverlayView(phoneIcon, iconAboveNumber);
+        }
+
+        View login = page.findViewById(com.alicom.fusion.auth.R.id.authsdk_login_view);
+        int loginBottom = login != null && login.getHeight() > 0
+                ? vendorTop(
+                                  page,
+                                  com.alicom.fusion.auth.R.id.authsdk_login_view,
+                                  rootLocation[1],
+                                  0)
+                        + login.getHeight()
+                : bodyTop + Math.round((layout.loginOffsetDp + LOGIN_HEIGHT_DP) * density);
+
+        placeOverlayView(root.findViewById(R.id.aliyun_fusion_auth_other_number),
+                loginBottom + Math.round(OTHER_BELOW_LOGIN_DP * density));
+    }
+
+    /**
+     * The vendor draws "+86" as a separate TextView with its own size and no
+     * resource id; give it the masked number's size and typeface. Guarded so
+     * the relayout it triggers does not repeat.
+     */
+    /**
+     * Hides the +86 country code prefix, leaving only the masked phone number.
+     */
+    private static void matchCountryCodeSize(View page) {
+        TextView country = findCountryCode(page);
+        if (country != null) {
+            country.setVisibility(View.GONE);
+            android.util.Log.d("AliyunFusionAuth", "Hidden +86 country code");
+        }
+    }
+
+    private static TextView findCountryCode(View view) {
+        if (view instanceof TextView
+                && "+86".equals(((TextView) view).getText().toString().trim())) {
+            return (TextView) view;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                TextView found = findCountryCode(group.getChildAt(i));
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void hideVendorView(View page, int id) {
+        View view = page.findViewById(id);
+        if (view != null && view.getVisibility() != View.GONE)
+            view.setVisibility(View.GONE);
+    }
+
+    /** Top of a vendor view relative to the overlay root, or the fallback. */
+    private static int vendorTop(View page, int id, int rootScreenTop, int fallback) {
+        View view = page.findViewById(id);
+        if (view == null || view.getHeight() == 0)
+            return fallback;
+        int[] location = new int[2];
+        view.getLocationOnScreen(location);
+        return location[1] - rootScreenTop;
+    }
+
+    private static void placeOverlayView(View view, int top) {
+        view.setTranslationY(top - view.getTop());
+        view.setAlpha(1f);
+    }
+
 
     private void handoffSms(Session current, AlicomFusionVerifyCodeView view) {
         if (session != current || current.smsReady || current.smsHandoffScheduled)
@@ -685,58 +1081,43 @@ public final class AliyunFusionAuthPlugin
             reply.error(code, message, null);
     }
 
-    private void configureAlternateLogin(FusionNumberAuthModel model, Session current) {
-        Context viewContext = activity != null ? activity : context;
-        TextView measure = new TextView(viewContext);
-        measure.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        int emailWidth = current.emailLoginLabel.isEmpty()
-                ? 0
-                : (int) Math.ceil(measure.getPaint().measureText(current.emailLoginLabel))
-                        + Math.round(24 * viewContext.getResources().getDisplayMetrics().density);
-        if (!current.alternateLoginLabel.isEmpty())
-            configureLoginEntry(
-                    model, current, current.alternateLoginLabel, "alternative_login", emailWidth);
-        if (!current.emailLoginLabel.isEmpty())
-            configureLoginEntry(model, current, current.emailLoginLabel, "email_login", 0);
+
+
+
+
+    /** Carrier agreements required next to the masked number, by SDK carrier name. */
+    private static String[] carrierProtocol(String carrierName) {
+        if ("CMCC".equals(carrierName)) {
+            return new String[] {
+                "《中国移动认证服务条款》", "https://wap.cmpassport.com/resources/html/contract.html"
+            };
+        }
+        if ("CUCC".equals(carrierName)) {
+            return new String[] {
+                "《中国联通认证服务协议》", "https://ms.zzx9.cn/html/oauth/protocol2.html"
+            };
+        }
+        if ("CTCC".equals(carrierName)) {
+            return new String[] {
+                "《中国电信天翼账号服务条款》", "https://e.189.cn/sdk/agreement/detail.do?hidetop=true"
+            };
+        }
+        return null;
     }
 
-    private void configureLoginEntry(FusionNumberAuthModel model, Session current, String label,
-            String resultCode, int endOffset) {
-        Context viewContext = activity != null ? activity : context;
-        TextView button = new TextView(viewContext);
-        float density = viewContext.getResources().getDisplayMetrics().density;
-        int padding = Math.round(12 * density);
-        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.MATCH_PARENT);
-        params.addRule(RelativeLayout.ALIGN_PARENT_END);
-        params.setMarginEnd(Math.round(8 * density) + endOffset);
-        button.setLayoutParams(params);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(padding, 0, padding, 0);
-        button.setMinHeight(Math.round(48 * density));
-        button.setText(label);
-        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        button.setTextColor(FusionNumberAuthModel.DEFAULT_NAV_TEXT_COLOR);
-        button.setClickable(true);
-        button.setFocusable(true);
-        button.setTextColor(0xFF0092FF); // App theme blue (os_color).
-        TypedValue background = new TypedValue();
-        if (viewContext.getTheme().resolveAttribute(
-                    android.R.attr.selectableItemBackgroundBorderless, background, true)
-                && background.resourceId != 0) {
-            button.setBackgroundResource(background.resourceId);
+    private static Activity findActivity(Context context) {
+        while (context instanceof ContextWrapper && !(context instanceof Activity)) {
+            Context base = ((ContextWrapper) context).getBaseContext();
+            if (base == context)
+                break;
+            context = base;
         }
-        // Keep the SDK's other-phone/SMS fallback intact. A separate navigation
-        // action ends this session before Flutter opens another login method.
-        model.addAuthRegistViewConfig("aliyun_fusion_auth_" + resultCode,
-                new AuthRegisterViewConfig.Builder()
-                        .setView(button)
-                        .setRootViewId(AuthRegisterViewConfig.RootViewId.ROOT_VIEW_ID_TITLE_BAR)
-                        .setCustomInterface(ignored
-                                -> main.post(()
-                                                     -> fail(current, resultCode,
-                                                             "已选择其他登录方式", null)))
-                        .build());
+        return context instanceof Activity ? (Activity) context : null;
+    }
+
+    private static boolean isDarkMode(Context context) {
+        int uiMode = context.getResources().getConfiguration().uiMode;
+        return (uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     }
 
     private void configurePrivacy(TextView view, Session current) {
@@ -750,7 +1131,7 @@ public final class AliyunFusionAuthPlugin
         view.setMovementMethod(LinkMovementMethod.getInstance());
     }
 
-    private void addProtocolLink(SpannableString text, int start, String name, String url) {
+    private void addProtocolLink(Spannable text, int start, String name, String url) {
         text.setSpan(new ClickableSpan() {
             @Override
             public void onClick(View widget) {
@@ -769,6 +1150,20 @@ public final class AliyunFusionAuthPlugin
     private static String argument(MethodCall call, String name) {
         Object value = call.argument(name);
         return value instanceof String ? ((String) value).trim() : "";
+    }
+
+    private static long number(Object value, long fallback) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Long.parseLong(((String) value).trim());
+            } catch (NumberFormatException ignored) {
+                // Use the bounded default below.
+            }
+        }
+        return fallback;
     }
 
     private static boolean isHttpsUrl(String value) {

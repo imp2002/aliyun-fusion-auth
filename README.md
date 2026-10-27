@@ -98,6 +98,12 @@ final result = await AliyunFusionAuth.authenticate(
 
 ## 直接展示号码登录页
 
+### Flutter 承载能力
+
+SDK exposes `FusionAuthPresentation.flutterHosted` and `supportsFlutterHosted()` so the App can select a hosted surface only after a platform capability check. iOS reports hosted support because the vendor scene is started in the Flutter-owned view controller. The bundled Android AAR currently exposes only Activity-based scene presentation, so Android reports `flutterHosted: false` and `authenticate()` returns `unsupported_hosted_mode` when that mode is requested; callers can retain `nativePage` until a vendor-supported embeddable View API is bundled.
+
+`AliyunFusionAuth.probeAndroidHeadless()` is a diagnostic real-device probe. It calls only the vendor `accelerateLoginPage` pre-login API, does not start a fusion scene, and never returns a carrier token or `verifyToken`. It reports `supported`, `startedActivity`, `returnedCarrierToken`, `returnedFusionProof`, `method`, and `reason`. Do not run it concurrently with production authentication.
+
 在用户已明确同意应用隐私政策后，可以在进入登录页时调用 `authenticate()`，让 SDK 的号码授权页直接作为登录界面，无需额外放置一个打开授权页的“一键登录”按钮。号码由 SDK 在原生页面展示为脱敏号码；插件不向 Flutter 提供独立的预取号码接口。运营商授权仍需用户在原生页面明确确认，本机认证不可用会按控制台方案走短信等兜底方式。
 
 设置 `FusionAuthConfig(alternateLoginLabel: '密码登录', ...)`，可以在原生号码授权页提供密码登录入口。点击后，插件等待原生页面关闭及会话清理完成，再抛出 `PlatformException(code: 'alternative_login')`；此时应用可导航到密码页，不应提交认证凭证。省略此参数则保持默认页面行为；配置时不能使用空白文字。

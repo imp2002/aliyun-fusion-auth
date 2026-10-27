@@ -1,5 +1,6 @@
 import 'fusion_auth_scene.dart';
 import 'fusion_auth_login_card.dart';
+import 'fusion_auth_presentation.dart';
 
 /// Configuration for one explicitly requested authentication attempt.
 ///
@@ -17,6 +18,10 @@ class FusionAuthConfig {
 
   /// Application name displayed on the native authentication page.
   final String appName;
+
+  /// Optional greeting shown by the Android native authorization page.
+  /// The host app should compute this from its own current-time rules.
+  final String? greeting;
 
   /// Your application's HTTPS user agreement URL.
   final Uri termsUrl;
@@ -78,11 +83,15 @@ class FusionAuthConfig {
   /// Android and other scenes retain their existing completion behavior.
   final bool retainNumberPage;
 
+  /// How the native authorization surface is presented.
+  final FusionAuthPresentation presentation;
+
   /// Creates an authentication request. Validation runs when it is submitted.
   const FusionAuthConfig({
     required this.authToken,
     required this.schemeCode,
     required this.appName,
+    this.greeting,
     required this.termsUrl,
     required this.privacyUrl,
     required this.privacyAccepted,
@@ -96,6 +105,7 @@ class FusionAuthConfig {
     this.emailLoginLabel,
     this.loginCard,
     this.retainNumberPage = false,
+    this.presentation = FusionAuthPresentation.nativePage,
     this.termsTitle = '用户协议',
     this.privacyTitle = '隐私政策',
   });

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Overlay registered with FusionNumberAuthModel.addAuthRegisterXmlConfig.
+     The SDK keeps rendering the masked number, login button and agreement
+     (carrier compliance); this layout only adds the app-owned controls. The
+     overlay starts at the screen top while SDK offsets start below a reserved
+     title area whose height varies by device, so AliyunFusionAuthPlugin
+     positions these views from the SDK views' measured bounds at runtime. -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/aliyun_fusion_auth_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFFFF">
+
+    <ImageView
+        android:id="@+id/aliyun_fusion_auth_close"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="关闭"
+        android:padding="11dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/aliyun_fusion_auth_close" />
+
+    <ImageView
+        android:id="@+id/aliyun_fusion_auth_phone_icon"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:alpha="0"
+        android:contentDescription="手机图标"
+        android:scaleType="fitCenter"
+        android:src="@drawable/aliyun_fusion_auth_phone" />
+
+    <TextView
+        android:id="@+id/aliyun_fusion_auth_other_number"
+        android:layout_width="wrap_content"
+        android:layout_height="44dp"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:alpha="0"
+        android:background="?android:attr/selectableItemBackground"
+        android:gravity="center"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:text="其他手机号登录"
+        android:textColor="#FF0092FF"
+        android:textSize="15sp" />
+</RelativeLayout>

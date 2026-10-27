@@ -8,6 +8,7 @@ import 'fusion_auth_page_snapshot.dart';
 import 'fusion_auth_result.dart';
 import 'fusion_auth_scene.dart';
 import 'fusion_auth_stage.dart';
+import 'fusion_auth_presentation.dart';
 
 /// Starts one native authentication flow at a time across plugin instances.
 class AliyunFusionAuth {
@@ -19,6 +20,37 @@ class AliyunFusionAuth {
   static int _stageSequence = 0;
   static String? _stageRequestId;
   static String? get smsSessionId => _smsSessionId;
+  static String? _sessionId;
+  static String? get sessionId => _sessionId;
+
+  /// Whether the current native bridge can host the vendor UI in Flutter.
+  /// This is a capability check only; it does not initialize authentication.
+  static Future<bool> supportsFlutterHosted() async {
+    if (!isSupported) return false;
+    final result = await _channel.invokeMapMethod<String, Object?>(
+      'capabilities',
+    );
+    return result?['flutterHosted'] == true;
+  }
+
+  /// Runs a diagnostic Android pre-login probe. It never returns a proof and
+  /// does not replace [authenticate]. Use it on a real device to determine
+  /// whether the bundled vendor SDK exposes any usable headless preparation.
+  static Future<Map<String, Object?>> probeAndroidHeadless({
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    if (defaultTargetPlatform != TargetPlatform.android || kIsWeb) {
+      return const {
+        'supported': false,
+        'reason': 'android_only',
+      };
+    }
+    final result = await _channel.invokeMapMethod<String, Object?>(
+      'probeHeadless',
+      {'timeoutMs': timeout.inMilliseconds},
+    );
+    return Map<String, Object?>.from(result ?? const {});
+  }
 
   /// Whether this platform can load the Android or iOS native plugin.
   ///
@@ -71,6 +103,8 @@ class AliyunFusionAuth {
     final requestId = onStageChanged == null
         ? null
         : '${DateTime.now().microsecondsSinceEpoch}-${++_stageSequence}';
+    _sessionId = requestId ??
+        '${DateTime.now().microsecondsSinceEpoch}-${++_stageSequence}';
     if (requestId != null) {
       _stageRequestId = requestId;
       FusionAuthStage? lastStage;
@@ -106,11 +140,14 @@ class AliyunFusionAuth {
           'schemeCode': config.schemeCode,
           'sceneId': config.scene.id,
           'appName': config.appName,
+          if (config.greeting != null) 'greeting': config.greeting,
           'termsTitle': config.termsTitle,
           'termsUrl': config.termsUrl.toString(),
           'privacyTitle': config.privacyTitle,
           'privacyUrl': config.privacyUrl.toString(),
           'privacyAccepted': config.privacyAccepted,
+          if (config.presentation != FusionAuthPresentation.nativePage)
+            'presentation': config.presentation.name,
           if (requestId != null) 'stageRequestId': requestId,
           if (config.deferConsentToNative) 'deferConsentToNative': true,
           if (config.appSms) 'appSms': true,
@@ -159,6 +196,9 @@ class AliyunFusionAuth {
         _channel.setMethodCallHandler(null);
       }
       _authenticating = false;
+      if (!_authenticating && _smsSessionId == null && !_numberPageRetained) {
+        _sessionId = null;
+      }
     }
   }
 
@@ -299,7 +339,6 @@ class AliyunFusionAuth {
                 config.loginCard != null) &&
             config.scene != FusionAuthScene.login) ||
         (config.startWithSms && !config.appSms) ||
-        (config.appSms && config.scene == FusionAuthScene.resetPassword) ||
         (config.retainNumberPage && config.scene != FusionAuthScene.login) ||
         (config.deferConsentToNative &&
             config.scene != FusionAuthScene.login) ||

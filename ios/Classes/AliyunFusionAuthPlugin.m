@@ -965,6 +965,11 @@ static AFFusionSession *AFActiveSession;
     });
     return;
   }
+  if ([call.method isEqualToString:@"capabilities"]) {
+    // iOS already hosts the vendor scene in the Flutter-owned view controller.
+    result(@{@"flutterHosted" : @YES});
+    return;
+  }
   if ([call.method isEqualToString:@"cancel"]) {
     if (self.session)
       [self.session cancelWithReply:result];

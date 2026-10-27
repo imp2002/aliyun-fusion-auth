@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <!-- Phone body outline -->
+    <path
+        android:pathData="M20,10 L44,10 Q48,10 48,14 L48,50 Q48,54 44,54 L20,54 Q16,54 16,50 L16,14 Q16,10 20,10 Z"
+        android:strokeWidth="2"
+        android:strokeColor="#FF0092FF"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- Screen area -->
+    <path
+        android:pathData="M20,16 L44,16 L44,46 L20,46 Z"
+        android:fillColor="#FF0092FF"
+        android:fillAlpha="0.1" />
+    <!-- Home button -->
+    <path
+        android:pathData="M32,49 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"
+        android:fillColor="#FF0092FF" />
+</vector>

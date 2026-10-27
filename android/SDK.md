@@ -10,7 +10,12 @@ Android 实现使用随包提供、未经修改的阿里云融合认证 SDK 1.2.
 
 | 制品 | SHA-256 |
 | --- | --- |
-| `fusionauth-1.2.16.aar` | `286efa126634c92da7fa0b6c22808ed8e27b7a485418ebdc2c4d64534ad33fc4` |
+| `fusionauth-1.2.16-online-release.aar` | `286efa126634c92da7fa0b6c22808ed8e27b7a485418ebdc2c4d64534ad33fc4` |
+
+官方 Demo 的 `FusionNumberAuthModel.Builder` 提供 `hiddenSwtichLogin`、
+`hiddenLoginText` 和 `hiddenNumberCountry` 三个授权页显示开关。桥接层使用
+这些正式 API 对齐 iOS 页面，避免把 `setSwitchAccHidden` 误当成底部“更多登录方式”
+开关。该能力仍然只定制厂商 Activity 内部布局，不会把授权页嵌入 Flutter。
 
 桥接代码使用 Android SDK 36 编译，支持 Android API 21 及以上版本。随包提供的原生库包含 `arm64-v8a`、`armeabi-v7a` 和 `x86`，不包含 `x86_64`。请在架构受支持、装有 SIM 卡且可使用移动数据的真机上验证认证流程。两个 ARM64 库均使用 16 KiB ELF 加载段对齐。
 

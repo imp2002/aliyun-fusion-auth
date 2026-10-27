@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light mode: dark text/icons on white background -->
+    <color name="aliyun_fusion_auth_icon_color">#FF17191D</color>
+</resources>
