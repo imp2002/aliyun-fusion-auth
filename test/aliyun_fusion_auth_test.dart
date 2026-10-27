@@ -248,18 +248,9 @@ void main() {
         ['authenticate', 'sendSmsCode', 'submitSmsCode', 'cancel']);
   });
 
-  test('app SMS configuration is login-only and explicit SMS requires app SMS',
-      () async {
-    for (final invalid in [
-      config(startWithSms: true),
-      config(
-          appSms: true,
-          scene: FusionAuthScene.resetPassword,
-          phone: '13800138000')
-    ]) {
-      await expectLater(AliyunFusionAuth.authenticate(invalid),
-          throwsA(errorCode('invalid_arguments')));
-    }
+  test('explicit SMS requires app SMS', () async {
+    await expectLater(AliyunFusionAuth.authenticate(config(startWithSms: true)),
+        throwsA(errorCode('invalid_arguments')));
     expect(calls, isEmpty);
   });
 

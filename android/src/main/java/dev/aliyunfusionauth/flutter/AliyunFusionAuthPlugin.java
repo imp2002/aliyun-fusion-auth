@@ -193,36 +193,33 @@ public final class AliyunFusionAuthPlugin
         };
         main.postDelayed(timeout, timeoutMs);
         try {
-            final PhoneNumberAuthHelper helper =
-                    PhoneNumberAuthHelper.getInstance(activity.getApplicationContext(),
-                            new TokenResultListener() {
-                                @Override
-                                public void onTokenSuccess(String token) {
-                                    if (replied[0])
-                                        return;
-                                    replied[0] = true;
-                                    main.removeCallbacks(timeout);
-                                    response.put("returnedCarrierToken",
-                                            token != null && !token.isEmpty());
-                                    response.put("supported", false);
-                                    response.put("reason", "unexpected_auth_callback");
-                                    result.success(response);
-                                }
+            final PhoneNumberAuthHelper helper = PhoneNumberAuthHelper.getInstance(
+                    activity.getApplicationContext(), new TokenResultListener() {
+                        @Override
+                        public void onTokenSuccess(String token) {
+                            if (replied[0])
+                                return;
+                            replied[0] = true;
+                            main.removeCallbacks(timeout);
+                            response.put("returnedCarrierToken", token != null && !token.isEmpty());
+                            response.put("supported", false);
+                            response.put("reason", "unexpected_auth_callback");
+                            result.success(response);
+                        }
 
-                                @Override
-                                public void onTokenFailed(String code) {
-                                    if (replied[0])
-                                        return;
-                                    replied[0] = true;
-                                    main.removeCallbacks(timeout);
-                                    response.put("supported", false);
-                                    response.put("reason", "auth_callback_failed");
-                                    result.success(response);
-                                }
-                            });
+                        @Override
+                        public void onTokenFailed(String code) {
+                            if (replied[0])
+                                return;
+                            replied[0] = true;
+                            main.removeCallbacks(timeout);
+                            response.put("supported", false);
+                            response.put("reason", "auth_callback_failed");
+                            result.success(response);
+                        }
+                    });
             helper.accelerateLoginPage(
-                    PhoneNumberAuthHelper.SERVICE_TYPE_LOGIN,
-                    new PreLoginResultListener() {
+                    PhoneNumberAuthHelper.SERVICE_TYPE_LOGIN, new PreLoginResultListener() {
                         @Override
                         public void onTokenSuccess(String token) {
                             if (replied[0])
@@ -597,12 +594,9 @@ public final class AliyunFusionAuthPlugin
         GradientDrawable background = new GradientDrawable();
         background.setColor(Color.rgb(0, 146, 255));
         background.setCornerRadius(
-                14 * (context == null
-                        ? 1f
-                        : context.getResources().getDisplayMetrics().density));
+                14 * (context == null ? 1f : context.getResources().getDisplayMetrics().density));
         return background;
     }
-
 
     // Vertical rhythm of the content block, in dp relative to the top of the
     // masked number. The SDK only accepts fixed offsets, so the block's screen
@@ -648,8 +642,8 @@ public final class AliyunFusionAuthPlugin
         float density = metrics.density;
         int screenDp = Math.round(metrics.heightPixels / density);
         int statusDp = 24;
-        int statusId = context.getResources()
-                .getIdentifier("status_bar_height", "dimen", "android");
+        int statusId =
+                context.getResources().getIdentifier("status_bar_height", "dimen", "android");
         if (statusId != 0)
             statusDp = Math.round(context.getResources().getDimensionPixelSize(statusId) / density);
         int bodyTopDp = statusDp + RESERVED_TITLE_DP;
@@ -734,10 +728,8 @@ public final class AliyunFusionAuthPlugin
                 .setProtocolAction("com.fusion.auth")
                 .setPackageName(context.getPackageName());
 
-        model.addAuthRegisterXmlConfig(
-                new AuthRegisterXmlConfig.Builder()
-                        .setLayout(
-                                R.layout.aliyun_fusion_auth_number_page,
+        model.addAuthRegisterXmlConfig(new AuthRegisterXmlConfig.Builder()
+                        .setLayout(R.layout.aliyun_fusion_auth_number_page,
                                 new AbstractPnsViewDelegate() {
                                     @Override
                                     public void onViewCreated(View view) {
@@ -853,10 +845,7 @@ public final class AliyunFusionAuthPlugin
         int bodyTop = Math.round(layout.bodyTopDp * density);
         int numberTop = numberContainer != null && numberContainer.getHeight() > 0
                 ? vendorTop(
-                          page,
-                          com.alicom.fusion.auth.R.id.authsdk_number_view,
-                          rootLocation[1],
-                          0)
+                          page, com.alicom.fusion.auth.R.id.authsdk_number_view, rootLocation[1], 0)
                 : bodyTop + Math.round(layout.numberOffsetDp * density);
 
         // Place phone icon above the masked number
@@ -869,10 +858,7 @@ public final class AliyunFusionAuthPlugin
         View login = page.findViewById(com.alicom.fusion.auth.R.id.authsdk_login_view);
         int loginBottom = login != null && login.getHeight() > 0
                 ? vendorTop(
-                                  page,
-                                  com.alicom.fusion.auth.R.id.authsdk_login_view,
-                                  rootLocation[1],
-                                  0)
+                          page, com.alicom.fusion.auth.R.id.authsdk_login_view, rootLocation[1], 0)
                         + login.getHeight()
                 : bodyTop + Math.round((layout.loginOffsetDp + LOGIN_HEIGHT_DP) * density);
 
@@ -933,7 +919,6 @@ public final class AliyunFusionAuthPlugin
         view.setTranslationY(top - view.getTop());
         view.setAlpha(1f);
     }
-
 
     private void handoffSms(Session current, AlicomFusionVerifyCodeView view) {
         if (session != current || current.smsReady || current.smsHandoffScheduled)
@@ -1081,26 +1066,19 @@ public final class AliyunFusionAuthPlugin
             reply.error(code, message, null);
     }
 
-
-
-
-
     /** Carrier agreements required next to the masked number, by SDK carrier name. */
     private static String[] carrierProtocol(String carrierName) {
         if ("CMCC".equals(carrierName)) {
-            return new String[] {
-                "《中国移动认证服务条款》", "https://wap.cmpassport.com/resources/html/contract.html"
-            };
+            return new String[] {"《中国移动认证服务条款》",
+                    "https://wap.cmpassport.com/resources/html/contract.html"};
         }
         if ("CUCC".equals(carrierName)) {
             return new String[] {
-                "《中国联通认证服务协议》", "https://ms.zzx9.cn/html/oauth/protocol2.html"
-            };
+                    "《中国联通认证服务协议》", "https://ms.zzx9.cn/html/oauth/protocol2.html"};
         }
         if ("CTCC".equals(carrierName)) {
-            return new String[] {
-                "《中国电信天翼账号服务条款》", "https://e.189.cn/sdk/agreement/detail.do?hidetop=true"
-            };
+            return new String[] {"《中国电信天翼账号服务条款》",
+                    "https://e.189.cn/sdk/agreement/detail.do?hidetop=true"};
         }
         return null;
     }
